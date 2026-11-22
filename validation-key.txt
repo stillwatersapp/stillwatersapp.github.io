@@ -1,0 +1,5 @@
+Serve a plain-text file at https://pi2pay.org/validation-key.txt whose entire content is:
+
+668fea18103c83c9f71b29ec3a65150cd301df8cf62fe1d4126c2ed88f4b96be7f3bacfea6069fa6253fdc3f0747f7dea4e0fcca084ff835153ffc100c3290c5
+
+Then redeploy the app so Pi can verify that I own this domain.
