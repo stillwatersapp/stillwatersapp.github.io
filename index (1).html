@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Pi²</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Pi Network SDK — loads in Pi Browser automatically; stub below no-ops outside it for demo -->
+<script>
+(function(){
+  if (typeof window.Pi !== 'undefined') return;
+  window.Pi = {
+    _authed: false,
+    authenticate: function(scopes, opts) {
+      console.log('[Pi SDK stub] authenticate', scopes);
+      this._authed = true;
+      return Promise.resolve({
+        accessToken: 'demo_access_token',
+        user: { uid: 'demo_uid', username: 'pioneer_will' }
+      });
+    },
+    createPayment: function(paymentData, callbacks) {
+      console.log('[Pi SDK stub] createPayment', paymentData);
+      // Simulates: Pi Browser → server approval → server completion
+      const paymentId = 'pi2_demo_' + Date.now();
+      setTimeout(() => {
+        callbacks.onReadyForServerApproval(paymentId);
+        // In production: POST /api/payments/approve { paymentId }
+        setTimeout(() => {
+          const txid = 'demo_txid_' + Date.now();
+          callbacks.onReadyForServerCompletion(paymentId, txid);
+          // In production: POST /api/payments/complete { paymentId, txid }
+        }, 800);
+      }, 600);
+    }
+  };
+  console.log('[Pi²] Outside Pi Browser — SDK running in demo/stub mode.');
+})();
+</script>
+<style>
+:root {
+  --bg: #07070e;
+  --surface: #0f0f1c;
+  --surface2: #161625;
+  --surface3: #1e1e30;
+  --border: #252538;
+  --border2: #2e2e48;
+  --pi: #6d28d9;
+  --pi2: #5b21b6;
+  --pi-light: #a78bfa;
+  --pi-lighter: #c4b5fd;
+  --pi-glow: rgba(109,40,217,0.3);
+  --pi-glow2: rgba(109,40,217,0.12);
+  --gold: #d97706;
+  --gold-light: #fbbf24;
+  --gold-lighter: #fde68a;
+  --teal: #0d9488;
+  --teal-light: #2dd4bf;
+  --teal-glow: rgba(13,148,136,0.15);
+  --text: #eeeeff;
+  --text2: #b8b8d4;
+  --muted: #5a5a7a;
+  --success: #059669;
+  --success-light: #34d399;
+  --danger: #dc2626;
+  --danger-light: #f87171;
+  --pending: #b45309;
+  --pending-light: #fbbf24;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.bg-layer {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0; overflow: hidden;
+}
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(109,40,217,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109,40,217,0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+.bg-orb1 {
+  position: absolute; top: -120px; left: 50%;
+  transform: translateX(-50%);
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(109,40,217,0.18) 0%, transparent 65%);
+  animation: orbFloat 8s ease-in-out infinite;
+}
+.bg-orb2 {
+  position: absolute; bottom: 20%; right: -100px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(217,119,6,0.08) 0%, transparent 65%);
+  animation: orbFloat 12s ease-in-out infinite reverse;
+}
+.bg-orb3 {
+  position: absolute; bottom: 40%; left: -80px;
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, rgba(13,148,136,0.07) 0%, transparent 65%);
+  animation: orbFloat 10s ease-in-out infinite;
+}
+@keyframes orbFloat {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-30px); }
+}
+.app {
+  position: relative; z-index: 1;
+  max-width: 430px; margin: 0 auto;
+  min-height: 100vh; padding-bottom: 88px;
+}
+
+/* DEMO BANNER */
+.demo-banner {
+  position: sticky; top: 0; z-index: 50;
+  background: linear-gradient(90deg, rgba(109,40,217,0.9), rgba(91,33,182,0.9));
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(167,139,250,0.3);
+  padding: 7px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  color: var(--pi-lighter); letter-spacing: 0.5px;
+}
+.demo-banner-dot {
+  display: inline-block; width: 6px; height: 6px;
+  background: #34d399; border-radius: 50%;
+  margin-right: 7px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.3)} }
+.demo-banner-right { color: var(--muted); font-size: 10px; }
+
+/* HEADER */
+.header {
+  padding: 16px 20px 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(7,7,14,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(37,37,56,0.5);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark { width: 36px; height: 36px; }
+.logo-mark svg { width: 36px; height: 36px; }
+.logo-text { font-size: 22px; font-weight: 800; letter-spacing: -1px; }
+.logo-text sup { font-size: 13px; color: var(--pi-light); vertical-align: super; font-weight: 600; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.network-badge {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(5,150,105,0.12); border: 1px solid rgba(52,211,153,0.2);
+  border-radius: 20px; padding: 4px 10px;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  color: var(--success-light);
+}
+.network-dot { width: 5px; height: 5px; background: #34d399; border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+.about-btn {
+  background: rgba(109,40,217,0.15); border: 1px solid rgba(109,40,217,0.3);
+  border-radius: 20px; padding: 4px 10px;
+  font-size: 11px; color: var(--pi-lighter); cursor: pointer;
+  font-family: 'DM Mono', monospace; transition: all 0.2s;
+}
+.about-btn:hover { background: rgba(109,40,217,0.3); }
+
+/* BALANCE CARD */
+.balance-card {
+  margin: 16px; padding: 20px 20px 18px;
+  background: linear-gradient(135deg, rgba(109,40,217,0.18) 0%, rgba(91,33,182,0.1) 50%, rgba(13,148,136,0.08) 100%);
+  border: 1px solid rgba(109,40,217,0.25);
+  border-radius: 20px; position: relative; overflow: hidden;
+}
+.balance-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+.balance-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+.balance-amount { font-size: 42px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+.balance-pi { color: var(--pi-lighter); }
+.balance-usd { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 4px; }
+.balance-usd span { color: var(--text2); }
+.quick-actions { display: flex; gap: 10px; margin-top: 18px; }
+.qa-btn {
+  flex: 1; padding: 10px 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  border-radius: 12px; font-size: 12px; font-weight: 600;
+  color: var(--text2); cursor: pointer; text-align: center;
+  transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.qa-btn:hover { background: rgba(255,255,255,0.09); border-color: var(--pi); color: var(--pi-lighter); }
+.qa-btn .qa-icon { font-size: 16px; }
+
+/* QUICK STATS */
+.quick-stats { display: flex; gap: 10px; padding: 0 16px 16px; }
+.qs-card {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px 10px; text-align: center;
+}
+.qs-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+.qs-val { font-size: 15px; font-weight: 700; }
+.qs-val.green { color: var(--success-light); }
+.qs-val.purple { color: var(--pi-lighter); }
+.qs-val.gold { color: var(--gold-light); }
+
+/* TABS */
+.tabs {
+  display: flex; gap: 0; margin: 0 16px 0;
+  background: var(--surface); border-radius: 14px;
+  padding: 4px; border: 1px solid var(--border);
+}
+.tab {
+  flex: 1; padding: 8px 4px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  color: var(--muted); text-align: center;
+  transition: all 0.25s; border: 1px solid transparent;
+}
+.tab.active {
+  background: var(--pi); color: #fff;
+  border-color: var(--pi2);
+  box-shadow: 0 2px 10px rgba(109,40,217,0.4);
+}
+.tab.active.market-tab { background: var(--teal); border-color: #0a7a70; box-shadow: 0 2px 10px rgba(13,148,136,0.4); }
+.tab.active.sell-tab { background: var(--gold); border-color: #b45309; box-shadow: 0 2px 10px rgba(217,119,6,0.4); }
+
+/* PANELS */
+.panel { display: none; padding: 16px 16px 8px; animation: fadeUp 0.25s ease; }
+.panel.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* FIELDS */
+.field { margin-bottom: 14px; }
+.field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: 'DM Mono', monospace; display: block; margin-bottom: 7px; }
+input, textarea, select {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px;
+  color: var(--text); font-family: 'Outfit', sans-serif; font-size: 14px;
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--pi); box-shadow: 0 0 0 3px rgba(109,40,217,0.12);
+}
+select { appearance: none; cursor: pointer; }
+textarea { resize: none; height: 76px; line-height: 1.5; }
+.amount-wrap { position: relative; }
+.amount-prefix {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--pi-light); font-weight: 700; font-size: 16px;
+}
+.amount-wrap input { padding-left: 30px; font-size: 18px; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+/* MEMO CHIPS */
+.memo-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.memo-chip {
+  padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; font-size: 12px; color: var(--text2); cursor: pointer; transition: all 0.2s;
+}
+.memo-chip:hover, .memo-chip.active { background: var(--pi-glow2); border-color: var(--pi); color: var(--pi-lighter); }
+
+/* PERSON ROWS */
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+.self-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: 12px; margin-bottom: 10px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: #fff; }
+.person-info { flex: 1; }
+.person-name { font-size: 14px; font-weight: 600; }
+.person-handle { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.person-share { font-size: 14px; font-weight: 700; color: var(--pi-lighter); font-family: 'DM Mono', monospace; }
+#people-list { margin-bottom: 10px; }
+.person-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: 12px; margin-bottom: 8px; animation: slideIn 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes slideIn { from { opacity:0; transform:scale(0.92) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.remove-btn { background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.2); border-radius: 8px; padding: 4px 8px; color: var(--danger-light); cursor: pointer; font-size: 14px; transition: all 0.2s; }
+.remove-btn:hover { background: rgba(220,38,38,0.25); }
+.add-person-btn {
+  width: 100%; padding: 11px; background: var(--surface); border: 1px dashed var(--border2);
+  border-radius: 12px; color: var(--muted); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px; transition: all 0.2s;
+}
+.add-person-btn:hover { border-color: var(--pi); color: var(--pi-lighter); background: var(--pi-glow2); }
+
+/* SUMMARY */
+.summary { display: none; margin: 14px 0 0; padding: 14px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border); }
+.summary.show { display: block; animation: fadeUp 0.2s ease; }
+.summary-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text2); margin-bottom: 7px; }
+.summary-row:last-child { margin-bottom: 0; }
+.summary-total { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border); margin-top: 8px; }
+.summary-total-label { font-size: 13px; font-weight: 600; }
+.summary-total-amount { font-size: 17px; font-weight: 800; color: var(--pi-lighter); font-family: 'DM Mono', monospace; }
+
+/* CTA BUTTON */
+.cta {
+  width: 100%; padding: 15px; background: var(--pi);
+  border: none; border-radius: 14px; color: #fff;
+  font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;
+  box-shadow: 0 4px 20px rgba(109,40,217,0.35);
+}
+.cta:hover:not(:disabled) { background: #7c3aed; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(109,40,217,0.5); }
+.cta:disabled { opacity: 0.35; cursor: not-allowed; }
+.cta.success { background: var(--success); box-shadow: 0 4px 20px rgba(5,150,105,0.4); }
+.cta.teal { background: var(--teal); box-shadow: 0 4px 20px rgba(13,148,136,0.35); }
+.cta.teal:hover { background: #0f766e; }
+.cta.gold { background: var(--gold); box-shadow: 0 4px 20px rgba(217,119,6,0.35); }
+.cta.gold:hover { background: #b45309; }
+
+/* LINK CARD */
+.link-card { display: none; margin-top: 14px; padding: 16px; background: rgba(5,150,105,0.08); border: 1px solid rgba(52,211,153,0.2); border-radius: 14px; }
+.link-card.show { display: block; animation: fadeUp 0.2s ease; }
+.link-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.link-card-icon { width: 32px; height: 32px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; flex-shrink: 0; }
+.link-card-title { font-size: 14px; font-weight: 700; color: var(--success-light); }
+.link-card-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.link-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); word-break: break-all; line-height: 1.5; }
+.link-actions { display: flex; gap: 8px; margin-top: 10px; }
+.link-btn { flex: 1; padding: 9px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text2); cursor: pointer; transition: all 0.2s; text-align: center; }
+.link-btn:hover, .link-btn.copied { background: rgba(5,150,105,0.15); border-color: rgba(52,211,153,0.3); color: var(--success-light); }
+
+/* RECEIVE / QR */
+.qr-container { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px; background: var(--surface); border-radius: 16px; margin-bottom: 16px; border: 1px solid var(--border); }
+.qr-frame { width: 160px; height: 160px; padding: 12px; background: white; border-radius: 12px; }
+.qr-frame svg { width: 100%; height: 100%; }
+.wallet-addr { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+.divider-line { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+.divider-line::before, .divider-line::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* MARKET */
+.market-search { margin-bottom: 10px; }
+.market-search input { padding: 10px 14px; font-size: 13px; }
+.market-cats { display: flex; gap: 7px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.market-cats::-webkit-scrollbar { display: none; }
+.market-cat { flex-shrink: 0; padding: 6px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+.market-cat.active { background: rgba(13,148,136,0.15); border-color: var(--teal); color: var(--teal-light); }
+.listings-grid { display: flex; flex-direction: column; gap: 12px; }
+.listing-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+.listing-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+.listing-img {
+  height: 90px; display: flex; align-items: center; justify-content: center;
+  font-size: 36px; position: relative;
+  background: linear-gradient(135deg, #1a1030, #0d0d20);
+}
+.listing-img-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.5)); }
+.listing-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); border-radius: 6px; padding: 2px 7px; font-size: 10px; color: var(--text2); font-family: 'DM Mono', monospace; }
+.listing-body { padding: 12px 14px; }
+.listing-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.listing-seller { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+.listing-footer { display: flex; align-items: center; justify-content: space-between; }
+.listing-price { font-size: 15px; font-weight: 800; color: var(--pi-lighter); font-family: 'DM Mono', monospace; }
+.listing-price span { font-size: 11px; color: var(--muted); margin-left: 5px; font-weight: 400; }
+.buy-btn { padding: 7px 16px; background: var(--teal); border: none; border-radius: 10px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.buy-btn:hover { background: #0f766e; transform: scale(1.04); }
+
+/* SELL */
+.sell-header-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: rgba(217,119,6,0.07); border: 1px solid rgba(217,119,6,0.18); border-radius: 14px; margin-bottom: 12px; }
+.sell-header-icon { font-size: 24px; flex-shrink: 0; }
+.sell-header-text { font-size: 13px; color: var(--text2); line-height: 1.5; }
+.sell-header-text strong { color: var(--gold-light); display: block; margin-bottom: 2px; font-size: 14px; }
+.sdk-badge { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: rgba(109,40,217,0.07); border: 1px solid rgba(109,40,217,0.18); border-radius: 10px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--pi-lighter); margin-bottom: 14px; }
+.img-upload-area { border: 2px dashed var(--border2); border-radius: 14px; padding: 24px; text-align: center; cursor: pointer; margin-bottom: 14px; transition: all 0.2s; }
+.img-upload-area:hover { border-color: var(--gold); background: rgba(217,119,6,0.04); }
+.img-upload-icon { font-size: 28px; margin-bottom: 6px; }
+.img-upload-text { font-size: 13px; color: var(--muted); }
+.img-upload-text span { color: var(--gold-light); }
+.tag-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+.tag-pill { padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+.tag-pill.active { background: rgba(217,119,6,0.12); border-color: var(--gold); color: var(--gold-light); }
+.my-listing-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: var(--surface); border-radius: 12px; margin-bottom: 8px; }
+.my-listing-emoji { font-size: 22px; flex-shrink: 0; }
+.my-listing-info { flex: 1; }
+.my-listing-title { font-size: 14px; font-weight: 600; }
+.my-listing-meta { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.my-listing-price { font-size: 14px; font-weight: 800; color: var(--pi-lighter); font-family: 'DM Mono', monospace; }
+.my-listing-status { font-size: 10px; padding: 2px 8px; border-radius: 6px; font-family: 'DM Mono', monospace; }
+.my-listing-status.active { background: rgba(5,150,105,0.12); color: var(--success-light); border: 1px solid rgba(5,150,105,0.2); }
+.my-listing-status.sold { background: rgba(109,40,217,0.12); color: var(--pi-lighter); border: 1px solid rgba(109,40,217,0.2); }
+
+/* HISTORY */
+.pending-banner { background: rgba(180,83,9,0.1); border: 1px solid rgba(180,83,9,0.25); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--pending-light); margin-bottom: 12px; }
+.history-filter { display: flex; gap: 7px; margin-bottom: 14px; overflow-x: auto; scrollbar-width: none; }
+.history-filter::-webkit-scrollbar { display: none; }
+.filter-chip { flex-shrink: 0; padding: 6px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+.filter-chip.active { background: var(--pi-glow2); border-color: var(--pi); color: var(--pi-lighter); }
+.tx-list { display: flex; flex-direction: column; gap: 2px; }
+.tx-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: var(--surface); border-radius: 12px; cursor: pointer; transition: background 0.2s; }
+.tx-item:hover { background: var(--surface2); }
+.tx-icon-wrap { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.tx-icon-wrap.sent { background: rgba(220,38,38,0.1); color: var(--danger-light); }
+.tx-icon-wrap.received { background: rgba(5,150,105,0.1); color: var(--success-light); }
+.tx-icon-wrap.market { background: rgba(13,148,136,0.1); color: var(--teal-light); }
+.tx-icon-wrap.pending { background: rgba(180,83,9,0.1); color: var(--pending-light); }
+.tx-info { flex: 1; }
+.tx-who { font-size: 14px; font-weight: 600; }
+.tx-what { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 1px; }
+.tx-right { text-align: right; }
+.tx-amount { font-size: 14px; font-weight: 800; font-family: 'DM Mono', monospace; }
+.tx-amount.sent { color: var(--danger-light); }
+.tx-amount.received { color: var(--success-light); }
+.tx-amount.market { color: var(--teal-light); }
+.tx-amount.pending { color: var(--pending-light); }
+.tx-time { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 430px;
+  background: rgba(10,10,20,0.92); backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(37,37,56,0.7);
+  display: flex; padding: 8px 0 20px; z-index: 40;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer;
+  padding: 6px 4px; transition: color 0.2s; letter-spacing: 0.3px;
+}
+.nav-item.active { color: var(--pi-lighter); }
+.nav-item.market-nav { color: var(--teal-light); }
+.nav-item.sell-nav { color: var(--gold-light); }
+.nav-icon-wrap { font-size: 18px; }
+
+/* OVERLAYS / SHEETS */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px); z-index: 60;
+  display: none; align-items: flex-end;
+}
+.overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+.sheet {
+  width: 100%; max-width: 430px; margin: 0 auto;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 16px 20px 36px; max-height: 85vh; overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes slideUp { from { transform: translateY(60px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+.sheet-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 0 auto 20px; }
+.sheet-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+.contact-list { display: flex; flex-direction: column; gap: 2px; }
+.contact-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; cursor: pointer; transition: background 0.2s; }
+.contact-row:hover { background: var(--surface2); }
+.contact-name { font-size: 14px; font-weight: 600; }
+.contact-handle { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+/* LISTING DETAIL */
+.listing-detail-img { font-size: 60px; text-align: center; margin-bottom: 12px; }
+.listing-detail-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.listing-detail-seller { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 14px; }
+.listing-detail-desc { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+.listing-detail-price { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.listing-detail-pi { font-size: 28px; font-weight: 800; color: var(--pi-lighter); font-family: 'DM Mono', monospace; }
+.listing-detail-usd { font-size: 14px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.fee-notice { background: rgba(109,40,217,0.07); border: 1px solid rgba(109,40,217,0.15); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 14px; }
+
+/* FEE MODAL */
+.fee-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+  z-index: 70; display: none; align-items: flex-end; justify-content: center;
+}
+.fee-modal-backdrop.show { display: flex; animation: fadeIn 0.2s ease; }
+.fee-modal {
+  width: 100%; max-width: 430px; background: var(--surface); border-radius: 24px 24px 0 0;
+  padding: 16px 20px 44px; animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.fee-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 0 auto 20px; }
+.fee-modal-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.fee-modal-sub { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 18px; }
+.fee-breakdown { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
+.fee-line { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+.fee-line:last-child { margin-bottom: 0; }
+.fee-line.total-line { padding-top: 10px; border-top: 1px solid var(--border); margin-top: 6px; }
+.fee-line.total-line .label { font-size: 14px; font-weight: 700; color: var(--text); }
+.fee-line.total-line .mono { font-size: 18px; font-weight: 800; color: var(--pi-lighter); }
+.mono { font-family: 'DM Mono', monospace; }
+.fee-options { display: flex; gap: 10px; margin-bottom: 16px; }
+.fee-opt {
+  flex: 1; padding: 13px 10px; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 14px; text-align: center; cursor: pointer; transition: all 0.2s;
+}
+.fee-opt.selected { border-color: var(--pi); background: rgba(109,40,217,0.1); }
+.fee-opt.ad-opt.selected { border-color: var(--gold); background: rgba(217,119,6,0.1); }
+.fee-opt-icon { font-size: 22px; margin-bottom: 5px; }
+.fee-opt-label { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.fee-opt-desc { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.fee-confirm-btn {
+  width: 100%; padding: 15px; border: none; border-radius: 14px; color: #fff;
+  font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: all 0.2s; margin-bottom: 10px;
+}
+.fee-confirm-btn.pay-fee { background: var(--pi); box-shadow: 0 4px 20px rgba(109,40,217,0.4); }
+.fee-confirm-btn.watch-ad { background: var(--gold); box-shadow: 0 4px 20px rgba(217,119,6,0.4); }
+.fee-cancel { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; width: 100%; padding: 10px; font-family: 'Outfit', sans-serif; transition: color 0.2s; }
+.fee-cancel:hover { color: var(--text2); }
+
+/* AD VIEWER */
+.ad-viewer {
+  position: fixed; inset: 0; background: #03030a; z-index: 90;
+  display: none; flex-direction: column;
+}
+.ad-viewer.show { display: flex; animation: fadeIn 0.3s ease; }
+.ad-skip-bar { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 10px; }
+.ad-countdown { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); }
+.ad-skip-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--text); cursor: pointer; transition: all 0.2s; }
+.ad-skip-btn:hover { background: rgba(255,255,255,0.2); }
+.ad-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+.ad-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 24px; }
+.ad-visual { font-size: 72px; margin-bottom: 20px; }
+.ad-title { font-size: 26px; font-weight: 800; margin-bottom: 10px; }
+.ad-desc { font-size: 14px; color: var(--text2); line-height: 1.6; max-width: 300px; }
+.ad-progress-bar { height: 3px; background: var(--pi); transition: width 0.9s linear; }
+.ad-reward-notice { background: rgba(5,150,105,0.1); border-top: 1px solid rgba(52,211,153,0.15); padding: 14px 20px; font-size: 13px; color: var(--success-light); text-align: center; font-family: 'DM Mono', monospace; }
+
+/* FEEDBACK FAB */
+.feedback-fab {
+  position: fixed; bottom: 90px; right: 20px; z-index: 60;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--pi); box-shadow: 0 4px 16px rgba(109,40,217,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; cursor: pointer; transition: all 0.2s;
+}
+.feedback-fab:hover { transform: scale(1.1); background: #7c3aed; }
+.star-row { display: flex; gap: 8px; margin-bottom: 18px; }
+.star { font-size: 28px; cursor: pointer; opacity: 0.3; transition: all 0.15s; filter: grayscale(1); }
+.star.lit { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
+.feedback-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.feedback-tag { padding: 6px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+.feedback-tag.active { background: var(--pi-glow2); border-color: var(--pi); color: var(--pi-lighter); }
+.feedback-textarea { width: 100%; height: 80px; resize: none; margin-bottom: 16px; }
+.feedback-sent { text-align: center; padding: 24px 0; }
+.feedback-sent-icon { font-size: 48px; margin-bottom: 10px; }
+.feedback-sent-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.feedback-sent-sub { font-size: 14px; color: var(--muted); }
+
+/* PAY PAGE */
+.pay-page {
+  position: fixed; inset: 0; background: var(--bg); z-index: 80;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px 24px; text-align: center;
+}
+.pay-page.show { display: flex; animation: fadeUp 0.3s ease; }
+.pay-page-logo { font-size: 40px; font-weight: 800; letter-spacing: -2px; margin-bottom: 6px; }
+.pay-page-logo sup { font-size: 18px; color: var(--pi-light); vertical-align: super; }
+.pay-page-sub { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 36px; }
+.pay-card {
+  width: 100%; max-width: 340px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px;
+}
+.pay-from { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+.pay-from-name { font-size: 18px; font-weight: 700; color: var(--pi-lighter); font-family: 'DM Mono', monospace; margin-bottom: 20px; }
+.pay-amount-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.pay-amount { font-size: 52px; font-weight: 800; letter-spacing: -2px; color: var(--text); line-height: 1; margin-bottom: 2px; }
+.pay-amount span { color: var(--pi-lighter); }
+.pay-split-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(109,40,217,0.1); border: 1px solid rgba(109,40,217,0.2); border-radius: 20px; padding: 3px 10px; font-size: 11px; color: var(--pi-lighter); font-family: 'DM Mono', monospace; margin-bottom: 16px; }
+.pay-memo { background: var(--surface2); border-radius: 10px; padding: 10px 14px; font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+.pay-actions { display: flex; flex-direction: column; gap: 10px; }
+.pay-cancel { background: none; border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: var(--muted); font-size: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s; }
+.pay-cancel:hover { border-color: var(--border2); color: var(--text2); }
+
+/* ABOUT MODAL */
+.about-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+  z-index: 80; display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.about-modal-backdrop.show { display: flex; animation: fadeIn 0.25s ease; }
+.about-modal {
+  width: 100%; max-width: 390px; background: var(--surface);
+  border: 1px solid rgba(109,40,217,0.3); border-radius: 24px;
+  padding: 28px 24px 24px; position: relative;
+  animation: fadeUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  max-height: 90vh; overflow-y: auto;
+}
+.about-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 28px; height: 28px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; cursor: pointer; color: var(--muted); transition: all 0.2s;
+}
+.about-close:hover { background: var(--surface3); color: var(--text); }
+.about-logo { text-align: center; margin-bottom: 20px; }
+.about-logo-mark { font-size: 36px; font-weight: 800; letter-spacing: -2px; color: var(--pi-lighter); }
+.about-logo-mark sup { font-size: 18px; vertical-align: super; }
+.about-logo-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 4px; }
+.about-tagline { font-size: 20px; font-weight: 800; text-align: center; line-height: 1.3; margin-bottom: 20px; }
+.about-tagline span { color: var(--pi-lighter); }
+.about-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.about-feature { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; }
+.about-feature-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.about-feature-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.about-feature-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.about-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+.about-stat { background: rgba(109,40,217,0.07); border: 1px solid rgba(109,40,217,0.15); border-radius: 12px; padding: 12px 10px; text-align: center; }
+.about-stat-val { font-size: 18px; font-weight: 800; color: var(--pi-lighter); font-family: 'DM Mono', monospace; }
+.about-stat-label { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+.about-cta { width: 100%; padding: 14px; background: var(--pi); border: none; border-radius: 14px; color: #fff; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px rgba(109,40,217,0.4); }
+.about-cta:hover { background: #7c3aed; }
+.about-footnote { font-size: 11px; color: var(--muted); text-align: center; margin-top: 12px; font-family: 'DM Mono', monospace; line-height: 1.5; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: rgba(30,30,48,0.95); border: 1px solid var(--border2);
+  backdrop-filter: blur(16px); border-radius: 20px;
+  padding: 10px 20px; font-size: 13px; font-weight: 600;
+  opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 100;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="bg-layer">
+  <div class="bg-grid"></div>
+  <div class="bg-orb1"></div>
+  <div class="bg-orb2"></div>
+  <div class="bg-orb3"></div>
+</div>
+
+<!-- DEMO BANNER -->
+<div class="demo-banner">
+  <div><span class="demo-banner-dot"></span>Pi² · Interactive Demo</div>
+  <div class="demo-banner-right">Pi Mainnet · v2.0</div>
+</div>
+
+<!-- PAY PAGE (URL-triggered) -->
+<div class="pay-page" id="pay-page">
+  <div class="pay-page-logo">Pi<sup>2</sup></div>
+  <div class="pay-page-sub">payment request</div>
+  <div class="pay-card">
+    <div class="pay-from">Request from</div>
+    <div class="pay-from-name" id="pay-from-name">@unknown</div>
+    <div class="pay-amount-label">Amount due</div>
+    <div class="pay-amount"><span>π</span> <span id="pay-amount-val">0.00</span></div>
+    <div style="margin:8px 0 14px">
+      <div class="pay-split-badge" id="pay-split-badge">⚡ direct payment</div>
+    </div>
+    <div class="pay-memo" id="pay-memo-text">—</div>
+    <div class="pay-actions">
+      <button class="cta" onclick="handleIncomingPay()">Pay with Pi ›</button>
+      <button class="pay-cancel" onclick="hidePay()">Not now</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="main-app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="19" cy="19" r="18" fill="url(#g1)" stroke="rgba(109,40,217,0.4)" stroke-width="1"/>
+          <text x="19" y="24" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="800" font-size="16" fill="white">π</text>
+          <text x="26" y="17" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="800" font-size="9" fill="#c4b5fd">2</text>
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#7c3aed"/>
+              <stop offset="100%" stop-color="#4c1d95"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="logo-text">Pi<sup>2</sup></div>
+    </div>
+    <div class="header-right">
+      <div class="network-badge">
+        <div class="network-dot"></div>
+        Mainnet
+      </div>
+      <div class="about-btn" onclick="openAbout()">About</div>
+    </div>
+  </div>
+
+  <!-- BALANCE CARD -->
+  <div class="balance-card" style="margin-top:14px">
+    <div class="balance-label">Available Balance</div>
+    <div class="balance-amount"><span class="balance-pi">π</span> 142.50</div>
+    <div class="balance-usd">≈ <span>$21.38 USD</span> · <span style="opacity:0.55;font-size:10px">reference price · no fiat held</span></div>
+    <div class="quick-actions">
+      <div class="qa-btn" onclick="switchTab('send')"><span class="qa-icon">↗</span>Send</div>
+      <div class="qa-btn" onclick="switchTab('receive')"><span class="qa-icon">↙</span>Request</div>
+      <div class="qa-btn" onclick="switchTab('market')"><span class="qa-icon">🛒</span>Market</div>
+    </div>
+  </div>
+
+  <!-- QUICK STATS -->
+  <div class="quick-stats">
+    <div class="qs-card">
+      <div class="qs-label">Received</div>
+      <div class="qs-val green">+π 65</div>
+    </div>
+    <div class="qs-card">
+      <div class="qs-label">My Items</div>
+      <div class="qs-val purple">3 listed</div>
+    </div>
+    <div class="qs-card">
+      <div class="qs-label">Pending</div>
+      <div class="qs-val gold">π 12</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" style="margin-bottom:0">
+    <div class="tab active" id="tab-send" onclick="switchTab('send')">Send</div>
+    <div class="tab" id="tab-receive" onclick="switchTab('receive')">Receive</div>
+    <div class="tab" id="tab-market" onclick="switchTab('market')">Market</div>
+    <div class="tab" id="tab-sell" onclick="switchTab('sell')">Sell</div>
+    <div class="tab" id="tab-history" onclick="switchTab('history')">History</div>
+  </div>
+
+  <!-- SEND PANEL -->
+  <div class="panel active" id="panel-send">
+    <div class="field">
+      <label class="field-label">Amount (π Pi)</label>
+      <div class="amount-wrap">
+        <span class="amount-prefix">π</span>
+        <input type="number" id="amount" placeholder="0.00" step="0.01" oninput="updateSplits()">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">What's it for?</label>
+      <div class="memo-chips">
+        <div class="memo-chip" onclick="setMemo('Dinner')">🍜 Dinner</div>
+        <div class="memo-chip" onclick="setMemo('Rent')">🏠 Rent</div>
+        <div class="memo-chip" onclick="setMemo('Gas')">⛽ Gas</div>
+        <div class="memo-chip" onclick="setMemo('Groceries')">🛒 Groceries</div>
+        <div class="memo-chip" onclick="setMemo('')">✏️ Custom</div>
+      </div>
+      <input type="text" id="memo" placeholder="Add a note…">
+    </div>
+    <div class="section-label" style="margin-top:4px">Split with</div>
+    <div class="self-row">
+      <div class="avatar" style="background:linear-gradient(135deg,#7c3aed,#4c1d95)">W</div>
+      <div class="person-info"><div class="person-name">You (pioneer_will)</div><div class="person-handle">@pioneer_will</div></div>
+      <div class="person-share" id="self-share">π —</div>
+    </div>
+    <div id="people-list"></div>
+    <button class="add-person-btn" onclick="openContacts()">
+      <span>+</span> Add someone to split
+    </button>
+
+    <div class="summary" id="summary">
+      <div class="summary-row">
+        <span class="summary-total-label">Total amount</span>
+        <span class="summary-total-amount" id="sum-total">π 0.00</span>
+      </div>
+      <div class="summary-row">
+        <span style="font-size:13px;color:var(--text2)">Split between</span>
+        <span style="font-size:13px;color:var(--text2)" id="sum-people">1 person</span>
+      </div>
+      <div class="summary-total">
+        <span class="summary-total-label">Each pays</span>
+        <span class="summary-total-amount" id="sum-each">π 0.00</span>
+      </div>
+    </div>
+
+    <button class="cta" id="send-btn" onclick="handleSend()" disabled style="margin-top:14px">Generate Request Link</button>
+
+    <div class="link-card" id="link-card">
+      <div class="link-card-header">
+        <div class="link-card-icon">✓</div>
+        <div>
+          <div class="link-card-title">Request Created</div>
+          <div class="link-card-sub" id="link-card-sub">Share with participants</div>
+        </div>
+      </div>
+      <div class="link-box" id="link-display"></div>
+      <div class="link-actions">
+        <button class="link-btn" id="copy-btn" onclick="copyLink()">📋 Copy</button>
+        <button class="link-btn" onclick="handleShare()">↗ Share</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECEIVE PANEL -->
+  <div class="panel" id="panel-receive">
+    <div class="section-label">Your Pi Address</div>
+    <div class="qr-container">
+      <div class="qr-frame">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="100" fill="white"/>
+          <rect x="5" y="5" width="35" height="35" fill="none" stroke="#6d28d9" stroke-width="3.5"/>
+          <rect x="12" y="12" width="21" height="21" fill="#6d28d9"/>
+          <rect x="60" y="5" width="35" height="35" fill="none" stroke="#6d28d9" stroke-width="3.5"/>
+          <rect x="67" y="12" width="21" height="21" fill="#6d28d9"/>
+          <rect x="5" y="60" width="35" height="35" fill="none" stroke="#6d28d9" stroke-width="3.5"/>
+          <rect x="12" y="67" width="21" height="21" fill="#6d28d9"/>
+          <rect x="45" y="5" width="7" height="7" fill="#000"/><rect x="55" y="5" width="7" height="7" fill="#000"/>
+          <rect x="45" y="15" width="7" height="7" fill="#6d28d9"/><rect x="55" y="15" width="7" height="7" fill="#000"/>
+          <rect x="45" y="25" width="7" height="7" fill="#000"/><rect x="55" y="25" width="7" height="7" fill="#6d28d9"/>
+          <rect x="45" y="35" width="7" height="7" fill="#000"/>
+          <rect x="60" y="45" width="7" height="7" fill="#000"/><rect x="70" y="45" width="7" height="7" fill="#6d28d9"/>
+          <rect x="80" y="45" width="7" height="7" fill="#000"/><rect x="90" y="45" width="7" height="7" fill="#000"/>
+          <rect x="5" y="45" width="7" height="7" fill="#000"/><rect x="15" y="45" width="7" height="7" fill="#6d28d9"/>
+          <rect x="25" y="45" width="7" height="7" fill="#000"/><rect x="35" y="45" width="7" height="7" fill="#000"/>
+          <rect x="45" y="45" width="7" height="7" fill="#6d28d9"/><rect x="55" y="45" width="7" height="7" fill="#000"/>
+          <rect x="60" y="55" width="7" height="7" fill="#000"/><rect x="70" y="55" width="7" height="7" fill="#6d28d9"/>
+          <rect x="80" y="55" width="7" height="7" fill="#000"/><rect x="90" y="55" width="7" height="7" fill="#6d28d9"/>
+          <rect x="60" y="65" width="7" height="7" fill="#6d28d9"/><rect x="70" y="65" width="7" height="7" fill="#000"/>
+          <rect x="80" y="65" width="7" height="7" fill="#6d28d9"/><rect x="90" y="65" width="7" height="7" fill="#000"/>
+          <rect x="60" y="75" width="7" height="7" fill="#000"/><rect x="70" y="75" width="7" height="7" fill="#6d28d9"/>
+          <rect x="80" y="75" width="7" height="7" fill="#000"/><rect x="90" y="75" width="7" height="7" fill="#6d28d9"/>
+          <rect x="60" y="85" width="7" height="7" fill="#6d28d9"/><rect x="70" y="85" width="7" height="7" fill="#000"/>
+          <rect x="80" y="85" width="7" height="7" fill="#6d28d9"/><rect x="90" y="85" width="7" height="7" fill="#000"/>
+          <rect x="45" y="55" width="7" height="7" fill="#000"/><rect x="45" y="65" width="7" height="7" fill="#6d28d9"/>
+          <rect x="45" y="75" width="7" height="7" fill="#000"/><rect x="45" y="85" width="7" height="7" fill="#6d28d9"/>
+          <rect x="55" y="55" width="7" height="7" fill="#6d28d9"/><rect x="55" y="65" width="7" height="7" fill="#000"/>
+          <rect x="55" y="75" width="7" height="7" fill="#6d28d9"/><rect x="55" y="85" width="7" height="7" fill="#000"/>
+        </svg>
+      </div>
+      <div class="wallet-addr">GBTK...X7WP · Pi Mainnet</div>
+    </div>
+    <div class="divider-line"><span>or request a specific amount</span></div>
+    <div class="field">
+      <label class="field-label">Request Amount (optional)</label>
+      <div class="amount-wrap">
+        <span class="amount-prefix">π</span>
+        <input type="number" id="req-amount" placeholder="0.00" step="0.01">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Note for Sender</label>
+      <input type="text" id="req-note" placeholder="What's this for?">
+    </div>
+    <button class="cta" onclick="createReceiveLink()" style="margin-bottom:12px">Create Request Link</button>
+    <div class="link-card" id="receive-link-card">
+      <div class="link-card-header">
+        <div class="link-card-icon">✓</div>
+        <div>
+          <div class="link-card-title">Share to Get Paid</div>
+          <div class="link-card-sub">Anyone with this link can pay you</div>
+        </div>
+      </div>
+      <div class="link-box" id="receive-link-display"></div>
+      <div class="link-actions">
+        <button class="link-btn" onclick="copyReceiveLink()">📋 Copy</button>
+        <button class="link-btn" onclick="handleShare()">↗ Share</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET PANEL -->
+  <div class="panel" id="panel-market">
+    <div class="market-search">
+      <input type="text" placeholder="🔍  Search listings…" oninput="filterListings(this.value)">
+    </div>
+    <div class="market-cats">
+      <div class="market-cat active" onclick="filterCat(this,'all')">All</div>
+      <div class="market-cat" onclick="filterCat(this,'goods')">🛍 Goods</div>
+      <div class="market-cat" onclick="filterCat(this,'services')">⚙️ Services</div>
+      <div class="market-cat" onclick="filterCat(this,'food')">🍜 Food</div>
+      <div class="market-cat" onclick="filterCat(this,'digital')">💻 Digital</div>
+      <div class="market-cat" onclick="filterCat(this,'local')">📍 Local</div>
+    </div>
+    <div class="listings-grid" id="listings-grid">
+
+      <div class="listing-card" data-cat="services" data-title="Logo Design" onclick="openListing(this)">
+        <div class="listing-img">
+          🎨
+          <div class="listing-img-overlay"></div>
+          <div class="listing-badge">services</div>
+        </div>
+        <div class="listing-body">
+          <div class="listing-title">Custom Logo Design</div>
+          <div class="listing-seller">@designr_kai · ⭐ 4.9 · 32 sales</div>
+          <div class="listing-footer">
+            <div class="listing-price">π 25.00 <span>≈ $3.75</span></div>
+            <button class="buy-btn" onclick="event.stopPropagation(); initBuy('Custom Logo Design', 25, '@designr_kai')">Buy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="listing-card" data-cat="digital" data-title="Python Course" onclick="openListing(this)">
+        <div class="listing-img" style="background:linear-gradient(135deg,#1a2a1a,#0a1a2e)">
+          💻
+          <div class="listing-img-overlay"></div>
+          <div class="listing-badge">digital</div>
+        </div>
+        <div class="listing-body">
+          <div class="listing-title">Python for Beginners</div>
+          <div class="listing-seller">@code_ana · ⭐ 5.0 · 14 sales</div>
+          <div class="listing-footer">
+            <div class="listing-price">π 40.00 <span>≈ $6.00</span></div>
+            <button class="buy-btn" onclick="event.stopPropagation(); initBuy('Python for Beginners', 40, '@code_ana')">Buy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="listing-card" data-cat="goods" data-title="Handmade Candles" onclick="openListing(this)">
+        <div class="listing-img" style="background:linear-gradient(135deg,#2a1a0a,#1a0a0a)">
+          🕯️
+          <div class="listing-img-overlay"></div>
+          <div class="listing-badge">goods</div>
+        </div>
+        <div class="listing-body">
+          <div class="listing-title">Handmade Soy Candle Set</div>
+          <div class="listing-seller">@crafts_sarah · ⭐ 4.8 · 8 sales</div>
+          <div class="listing-footer">
+            <div class="listing-price">π 18.00 <span>≈ $2.70</span></div>
+            <button class="buy-btn" onclick="event.stopPropagation(); initBuy('Handmade Soy Candle Set', 18, '@crafts_sarah')">Buy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="listing-card" data-cat="food" data-title="Meal Prep" onclick="openListing(this)">
+        <div class="listing-img" style="background:linear-gradient(135deg,#1a0a0a,#2a1a0a)">
+          🥗
+          <div class="listing-img-overlay"></div>
+          <div class="listing-badge">food</div>
+        </div>
+        <div class="listing-body">
+          <div class="listing-title">Weekly Meal Prep (5 days)</div>
+          <div class="listing-seller">@chef_marcus · ⭐ 4.7 · 21 sales</div>
+          <div class="listing-footer">
+            <div class="listing-price">π 55.00 <span>≈ $8.25</span></div>
+            <button class="buy-btn" onclick="event.stopPropagation(); initBuy('Weekly Meal Prep', 55, '@chef_marcus')">Buy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="listing-card" data-cat="local" data-title="Car Wash" onclick="openListing(this)">
+        <div class="listing-img" style="background:linear-gradient(135deg,#0a1a2a,#0a1a1a)">
+          🚗
+          <div class="listing-img-overlay"></div>
+          <div class="listing-badge">local</div>
+        </div>
+        <div class="listing-body">
+          <div class="listing-title">Full Detail Car Wash</div>
+          <div class="listing-seller">@localshine_j · ⭐ 4.6 · 56 sales</div>
+          <div class="listing-footer">
+            <div class="listing-price">π 30.00 <span>≈ $4.50</span></div>
+            <button class="buy-btn" onclick="event.stopPropagation(); initBuy('Full Detail Car Wash', 30, '@localshine_j')">Buy</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SELL PANEL -->
+  <div class="panel" id="panel-sell">
+    <div class="sell-header-card">
+      <div class="sell-header-icon">🏪</div>
+      <div class="sell-header-text">
+        <strong>Start selling on Pi²</strong>
+        List anything — goods, services, digital products. Buyers pay in Pi. You receive 100% of your listed price.
+      </div>
+    </div>
+
+    <div class="sdk-badge" style="background:rgba(217,119,6,0.07);border-color:rgba(217,119,6,0.2)">💰 1% fee paid by buyer · waivable with 30s ad · you receive 100% of listed price</div>
+
+    <div class="img-upload-area" onclick="showToast('Photo upload available after Pi Developer Portal setup')">
+      <div class="img-upload-icon">📷</div>
+      <div class="img-upload-text"><span>Tap to upload</span> a photo of your item</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Listing Title</label>
+      <input type="text" id="sell-title" placeholder="e.g. Handmade bracelet, Logo design…">
+    </div>
+
+    <div class="field">
+      <label class="field-label">Description</label>
+      <textarea id="sell-desc" placeholder="Describe what you're offering, condition, delivery details…"></textarea>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Price (π)</label>
+      <div class="amount-wrap">
+        <span class="amount-prefix">π</span>
+        <input type="number" id="sell-price" placeholder="0.00" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Category</label>
+      <select id="sell-cat">
+        <option value="">Select category…</option>
+        <option value="goods">🛍 Goods</option>
+        <option value="services">⚙️ Services</option>
+        <option value="food">🍜 Food</option>
+        <option value="digital">💻 Digital</option>
+        <option value="local">📍 Local</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Tags (tap to add)</label>
+      <div class="tag-pills">
+        <div class="tag-pill" onclick="toggleTag(this)">handmade</div>
+        <div class="tag-pill" onclick="toggleTag(this)">digital</div>
+        <div class="tag-pill" onclick="toggleTag(this)">local pickup</div>
+        <div class="tag-pill" onclick="toggleTag(this)">ships worldwide</div>
+        <div class="tag-pill" onclick="toggleTag(this)">1-day delivery</div>
+        <div class="tag-pill" onclick="toggleTag(this)">custom order</div>
+      </div>
+    </div>
+
+    <button class="cta gold" onclick="handleListItem()" style="margin-bottom:16px">Publish Listing</button>
+
+    <div class="section-label" style="margin-top:8px">My Active Listings</div>
+    <div id="my-listings">
+      <div class="my-listing-row">
+        <div class="my-listing-emoji">🎨</div>
+        <div class="my-listing-info">
+          <div class="my-listing-title">UI Design Consultation</div>
+          <div class="my-listing-meta">services · 2 views today</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <div class="my-listing-price">π 35.00</div>
+          <div class="my-listing-status active">active</div>
+        </div>
+      </div>
+      <div class="my-listing-row">
+        <div class="my-listing-emoji">📚</div>
+        <div class="my-listing-info">
+          <div class="my-listing-title">Medical Terminology PDF Guide</div>
+          <div class="my-listing-meta">digital · 7 views today</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <div class="my-listing-price">π 12.00</div>
+          <div class="my-listing-status active">active</div>
+        </div>
+      </div>
+      <div class="my-listing-row">
+        <div class="my-listing-emoji">⌚</div>
+        <div class="my-listing-info">
+          <div class="my-listing-title">Casio Watch (used)</div>
+          <div class="my-listing-meta">goods · sold 3 days ago</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <div class="my-listing-price">π 20.00</div>
+          <div class="my-listing-status sold">sold</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div class="panel" id="panel-history">
+    <div class="pending-banner">
+      ⏳ <span>James P. hasn't paid his share · <u style="cursor:pointer" onclick="showToast('Reminder sent to @james_p ✓')">Send reminder</u></span>
+    </div>
+    <div class="history-filter">
+      <div class="filter-chip active" onclick="filterHistory(this,'all')">All</div>
+      <div class="filter-chip" onclick="filterHistory(this,'received')">Received</div>
+      <div class="filter-chip" onclick="filterHistory(this,'sent')">Sent</div>
+      <div class="filter-chip" onclick="filterHistory(this,'market')">Market</div>
+      <div class="filter-chip" onclick="filterHistory(this,'pending')">Pending</div>
+    </div>
+    <div class="tx-list" id="tx-list">
+      <div class="tx-item" data-type="market">
+        <div class="tx-icon-wrap market">🛒</div>
+        <div class="tx-info"><div class="tx-who">Custom Logo Design</div><div class="tx-what">from @designr_kai · marketplace</div></div>
+        <div class="tx-right"><div class="tx-amount market">−π 25.25</div><div class="tx-time">1h ago</div></div>
+      </div>
+      <div class="tx-item" data-type="sent">
+        <div class="tx-icon-wrap sent">↗</div>
+        <div class="tx-info"><div class="tx-who">@sarah_pi</div><div class="tx-what">Dinner · split 3 ways</div></div>
+        <div class="tx-right"><div class="tx-amount sent">−π 8.33</div><div class="tx-time">2h ago</div></div>
+      </div>
+      <div class="tx-item" data-type="received">
+        <div class="tx-icon-wrap received">↙</div>
+        <div class="tx-info"><div class="tx-who">@marcus_k</div><div class="tx-what">Gas money</div></div>
+        <div class="tx-right"><div class="tx-amount received">+π 15.00</div><div class="tx-time">Yesterday</div></div>
+      </div>
+      <div class="tx-item" data-type="market">
+        <div class="tx-icon-wrap market">🏪</div>
+        <div class="tx-info"><div class="tx-who">Medical Terminology PDF</div><div class="tx-what">sold to @buyer_123 · marketplace</div></div>
+        <div class="tx-right"><div class="tx-amount received">+π 12.00</div><div class="tx-time">Yesterday</div></div>
+      </div>
+      <div class="tx-item" data-type="pending">
+        <div class="tx-icon-wrap pending">⏳</div>
+        <div class="tx-info"><div class="tx-who">@james_p</div><div class="tx-what">Movie tickets · awaiting payment</div></div>
+        <div class="tx-right"><div class="tx-amount pending">π 12.00</div><div class="tx-time">2 days ago</div></div>
+      </div>
+      <div class="tx-item" data-type="received">
+        <div class="tx-icon-wrap received">↙</div>
+        <div class="tx-info"><div class="tx-who">@ana_pi</div><div class="tx-what">Rent split · April</div></div>
+        <div class="tx-right"><div class="tx-amount received">+π 50.00</div><div class="tx-time">Apr 1</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-send" onclick="switchTab('send')">
+    <div class="nav-icon-wrap">↗</div>Send
+  </div>
+  <div class="nav-item" id="nav-receive" onclick="switchTab('receive')">
+    <div class="nav-icon-wrap">↙</div>Receive
+  </div>
+  <div class="nav-item" id="nav-market" onclick="switchTab('market')">
+    <div class="nav-icon-wrap">🛒</div>Market
+  </div>
+  <div class="nav-item" id="nav-sell" onclick="switchTab('sell')">
+    <div class="nav-icon-wrap">🏪</div>Sell
+  </div>
+  <div class="nav-item" id="nav-history" onclick="switchTab('history')">
+    <div class="nav-icon-wrap">⏱</div>History
+  </div>
+</div>
+
+<!-- CONTACT OVERLAY -->
+<div class="overlay" id="contact-overlay" onclick="closeOverlay(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Add to Split</div>
+    <div class="contact-list">
+      <div class="contact-row" onclick="addPerson('Sarah K.','sarah_pi','linear-gradient(135deg,#ec4899,#8b5cf6)')">
+        <div class="avatar" style="background:linear-gradient(135deg,#ec4899,#8b5cf6)">SK</div>
+        <div><div class="contact-name">Sarah K.</div><div class="contact-handle">@sarah_pi</div></div>
+      </div>
+      <div class="contact-row" onclick="addPerson('Marcus','marcus_k','linear-gradient(135deg,#10b981,#3b82f6)')">
+        <div class="avatar" style="background:linear-gradient(135deg,#10b981,#3b82f6)">M</div>
+        <div><div class="contact-name">Marcus</div><div class="contact-handle">@marcus_k</div></div>
+      </div>
+      <div class="contact-row" onclick="addPerson('James P.','james_p','linear-gradient(135deg,#f59e0b,#ef4444)')">
+        <div class="avatar" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">JP</div>
+        <div><div class="contact-name">James P.</div><div class="contact-handle">@james_p</div></div>
+      </div>
+      <div class="contact-row" onclick="addPerson('Ana','ana_pi','linear-gradient(135deg,#6366f1,#8b5cf6)')">
+        <div class="avatar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">A</div>
+        <div><div class="contact-name">Ana</div><div class="contact-handle">@ana_pi</div></div>
+      </div>
+      <div class="contact-row" onclick="addPerson('Kai','pioneer_kai','linear-gradient(135deg,#0ea5e9,#6366f1)')">
+        <div class="avatar" style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">K</div>
+        <div><div class="contact-name">Kai</div><div class="contact-handle">@pioneer_kai</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LISTING DETAIL SHEET -->
+<div class="overlay" id="listing-overlay" onclick="closeOverlay(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="listing-detail" id="listing-detail-content"></div>
+  </div>
+</div>
+
+<!-- FEE MODAL -->
+<div class="fee-modal-backdrop" id="fee-modal" onclick="closeFeeModal(event)">
+  <div class="fee-modal">
+    <div class="fee-handle"></div>
+    <div class="fee-modal-title">Confirm Purchase</div>
+    <div class="fee-modal-sub" id="fee-modal-sub">Complete your Pi² transaction</div>
+
+    <div class="fee-breakdown">
+      <div class="fee-line">
+        <span id="fee-item-name">Item name</span>
+        <span class="mono" id="fee-item-price">π 0.00</span>
+      </div>
+      <div class="fee-line">
+        <span>Pi² platform fee (1%)</span>
+        <span class="mono" id="fee-amount">π 0.00</span>
+      </div>
+      <div class="fee-line total-line">
+        <span class="label">Total you pay</span>
+        <span class="mono" id="fee-total">π 0.00</span>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;font-family:'DM Mono',monospace;">How would you like to handle the platform fee?</div>
+    <div class="fee-options">
+      <div class="fee-opt selected" id="fee-opt-pay" onclick="selectFeeOpt('pay')">
+        <div class="fee-opt-icon">π</div>
+        <div class="fee-opt-label">Pay in Pi</div>
+        <div class="fee-opt-desc">1% added · instant</div>
+      </div>
+      <div class="fee-opt ad-opt" id="fee-opt-ad" onclick="selectFeeOpt('ad')">
+        <div class="fee-opt-icon">📺</div>
+        <div class="fee-opt-label">Watch 30s Ad</div>
+        <div class="fee-opt-desc">fee waived · free</div>
+      </div>
+    </div>
+
+    <button class="fee-confirm-btn pay-fee" id="fee-confirm-btn" onclick="confirmPurchase()">Pay with Pi</button>
+    <button class="fee-cancel" onclick="closeFeeModalDirect()">Cancel</button>
+  </div>
+</div>
+
+<!-- AD VIEWER -->
+<div class="ad-viewer" id="ad-viewer">
+  <div class="ad-skip-bar">
+    <div class="ad-countdown" id="ad-countdown">Ad ends in 30s</div>
+  <div id="ad-demo-label" style="display:none;font-size:10px;font-family:'DM Mono',monospace;color:rgba(167,139,250,0.6);margin-left:4px">[demo: 5s]</div>
+    <button class="ad-skip-btn" id="ad-skip-btn" onclick="skipAd()">Skip Ad ›</button>
+  </div>
+  <div class="ad-content">
+    <div class="ad-label">Advertisement · Rewarded by Pi²</div>
+    <div class="ad-visual">🌐</div>
+    <div class="ad-title">Discover More on Pi</div>
+    <div class="ad-desc">The decentralized economy is growing. Earn, spend, and connect — all in Pi.</div>
+  </div>
+  <div class="ad-progress-bar" id="ad-progress" style="width:0%"></div>
+  <div class="ad-reward-notice">🎁 Completing this ad waives your transaction fee</div>
+</div>
+
+<!-- FEEDBACK FAB -->
+<div class="feedback-fab" onclick="openFeedback()" title="Leave feedback">💬</div>
+
+<!-- FEEDBACK SHEET -->
+<div class="overlay" id="feedback-overlay" onclick="closeOverlay(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+
+    <div id="feedback-form">
+      <div class="sheet-title">Share Feedback</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:18px;font-family:'DM Mono',monospace;">Help us improve Pi² · takes 30 seconds</div>
+
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:12px;">Overall rating</div>
+      <div class="star-row" id="star-row">
+        <span class="star" data-val="1" onclick="rateStar(1)">⭐</span>
+        <span class="star" data-val="2" onclick="rateStar(2)">⭐</span>
+        <span class="star" data-val="3" onclick="rateStar(3)">⭐</span>
+        <span class="star" data-val="4" onclick="rateStar(4)">⭐</span>
+        <span class="star" data-val="5" onclick="rateStar(5)">⭐</span>
+      </div>
+
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:10px;">What stood out? (optional)</div>
+      <div class="feedback-tags">
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Easy to use</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Love the Market</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Fast payments</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Ad waiver 👍</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Needs more sellers</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Confusing UI</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Fee too high</div>
+        <div class="feedback-tag" onclick="toggleFeedbackTag(this)">Want dark mode tweaks</div>
+      </div>
+
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:10px;">Anything else?</div>
+      <textarea class="feedback-textarea" id="feedback-text" placeholder="Feature requests, bugs, ideas…"></textarea>
+
+      <button class="cta" onclick="submitFeedback()">Send Feedback</button>
+    </div>
+
+    <div class="feedback-sent" id="feedback-sent" style="display:none">
+      <div class="feedback-sent-icon">🙏</div>
+      <div class="feedback-sent-title">Thank you!</div>
+      <div class="feedback-sent-sub">Your feedback shapes Pi²</div>
+      <div style="margin-top:20px;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.6;">
+        Go deeper on the Pi Brainstorm app →<br>search <strong style="color:var(--pi-lighter)">Pi²</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT MODAL -->
+<div class="about-modal-backdrop" id="about-modal" onclick="closeAboutOutside(event)">
+  <div class="about-modal">
+    <div class="about-close" onclick="closeAbout()">✕</div>
+    <div class="about-logo">
+      <div class="about-logo-mark">Pi<sup>2</sup></div>
+      <div class="about-logo-sub">payments · marketplace · tools</div>
+    </div>
+    <div class="about-tagline">The <span>Pi-native</span> commerce platform for 50M+ Pioneers</div>
+    <div class="about-features">
+      <div class="about-feature">
+        <div class="about-feature-icon">↗</div>
+        <div>
+          <div class="about-feature-title">Send &amp; Split</div>
+          <div class="about-feature-desc">Request Pi, split bills, generate shareable payment links — all inside Pi Browser.</div>
+        </div>
+      </div>
+      <div class="about-feature">
+        <div class="about-feature-icon">🛒</div>
+        <div>
+          <div class="about-feature-title">Marketplace</div>
+          <div class="about-feature-desc">Buy and sell goods, services, digital products, and local offerings — priced in Pi.</div>
+        </div>
+      </div>
+      <div class="about-feature">
+        <div class="about-feature-icon">💰</div>
+        <div>
+          <div class="about-feature-title">1% Fee · Waivable</div>
+          <div class="about-feature-desc">Buyers pay a 1% platform fee on top of the listed price. Sellers always receive 100% of what they listed. Buyers can waive their fee by watching a 30-second rewarded ad.</div>
+        </div>
+      </div>
+      <div class="about-feature">
+        <div class="about-feature-icon">🛡️</div>
+        <div>
+          <div class="about-feature-title">Pi-only · No Fiat Risk</div>
+          <div class="about-feature-desc">No credit cards, no fiat held or transmitted. Pi-only design eliminates money-transmitter licensing and PCI DSS scope. USD prices shown are informational reference only.</div>
+        </div>
+      </div>
+    </div>
+    <div class="about-stats">
+      <div class="about-stat">
+        <div class="about-stat-val">50M+</div>
+        <div class="about-stat-label">Total Pioneers</div>
+      </div>
+      <div class="about-stat">
+        <div class="about-stat-val">1%</div>
+        <div class="about-stat-label">Platform Fee</div>
+      </div>
+      <div class="about-stat">
+        <div class="about-stat-val">$0</div>
+        <div class="about-stat-label">Fiat Handled</div>
+      </div>
+      <div class="about-stat">
+        <div class="about-stat-val">∞</div>
+        <div class="about-stat-label">Use Cases</div>
+      </div>
+    </div>
+    <button class="about-cta" onclick="closeAbout(); switchTab('market')">Explore the Marketplace →</button>
+    <div class="about-footnote">Built for Pi Next · Pi² by @PaperChasers1<br>Running on Pi Network's open payment infrastructure.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ STATE ============
+let people = [];
+let receiveLink = '';
+let currentBuy = null;
+let feeOpt = 'pay';
+const FEE_RATE = 0.01;
+const ALL_TABS = ['send','receive','market','sell','history'];
+const DEMO_MODE = new URLSearchParams(window.location.search).has('demo');
+const AD_DURATION = DEMO_MODE ? 5 : 30; // 5s in ?demo mode, 30s in production
+
+// ============ BOOT ============
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+
+  // Authenticate with Pi Network on load
+  // Scopes: 'username' to identify the user, 'payments' to process transactions
+  Pi.authenticate(['username', 'payments'], { onIncompletePaymentFound: handleIncompletePayment })
+    .then(auth => {
+      console.log('[Pi²] Authenticated:', auth.user.username);
+      // TODO: POST auth.accessToken to /api/auth/verify to get a session
+    })
+    .catch(err => {
+      console.warn('[Pi²] Auth failed (expected outside Pi Browser):', err);
+    });
+
+  if (params.get('amount') || params.get('to')) {
+    showPayPage(params);
+  } else {
+    // Show About modal on first load for demo context
+    setTimeout(() => openAbout(), 400);
+  }
+});
+
+function handleIncompletePayment(payment) {
+  // Called by Pi SDK if a previous payment was never completed
+  // In production: POST /api/payments/complete { paymentId: payment.identifier, txid: payment.transaction?.txid }
+  console.log('[Pi²] Incomplete payment found:', payment);
+  showToast('Resuming previous payment…');
+}
+
+// ============ ABOUT MODAL ============
+function openAbout() {
+  document.getElementById('about-modal').classList.add('show');
+}
+function closeAbout() {
+  document.getElementById('about-modal').classList.remove('show');
+}
+function closeAboutOutside(e) {
+  if (e.target.id === 'about-modal') closeAbout();
+}
+
+// ============ TAB SWITCHING ============
+function switchTab(tab) {
+  ALL_TABS.forEach(t => {
+    const panel = document.getElementById(`panel-${t}`);
+    const tabEl = document.getElementById(`tab-${t}`);
+    const navEl = document.getElementById(`nav-${t}`);
+    const isActive = t === tab;
+    if (panel) panel.classList.toggle('active', isActive);
+    if (tabEl) {
+      tabEl.classList.toggle('active', isActive);
+      tabEl.classList.remove('market-tab','sell-tab');
+      if (isActive && t === 'market') tabEl.classList.add('market-tab');
+      if (isActive && t === 'sell') tabEl.classList.add('sell-tab');
+    }
+    if (navEl) {
+      navEl.classList.toggle('active', isActive);
+      navEl.classList.remove('market-nav','sell-nav');
+      if (isActive && t === 'market') navEl.classList.add('market-nav');
+      if (isActive && t === 'sell') navEl.classList.add('sell-nav');
+    }
+  });
+}
+
+// ============ PAY PAGE ============
+function showPayPage(params) {
+  document.getElementById('main-app').style.display = 'none';
+  document.querySelector('.bottom-nav').style.display = 'none';
+  const amount = params.get('amount') || '0.00';
+  const from = params.get('from') || params.get('to') || 'unknown';
+  const memo = params.get('memo') || 'Pi payment';
+  const ppl = parseInt(params.get('people')) || 1;
+  document.getElementById('pay-from-name').textContent = `@${from}`;
+  document.getElementById('pay-amount-val').textContent = parseFloat(amount).toFixed(2);
+  document.getElementById('pay-memo-text').textContent = decodeURIComponent(memo);
+  document.getElementById('pay-split-badge').textContent = ppl > 1 ? `⚡ split · ${ppl} people` : '⚡ direct payment';
+  document.getElementById('pay-page').classList.add('show');
+}
+function hidePay() {
+  document.getElementById('pay-page').classList.remove('show');
+  document.getElementById('main-app').style.display = 'block';
+  document.querySelector('.bottom-nav').style.display = 'flex';
+}
+function handleIncomingPay() {
+  showToast('Opening Pi Wallet…');
+  setTimeout(() => showToast('Payment sent ✓'), 1800);
+}
+
+// ============ SEND / SPLIT ============
+function setMemo(text) {
+  const input = document.getElementById('memo');
+  if (text === '') {
+    input.focus();
+    input.placeholder = 'Type your own…';
+  } else {
+    input.value = text;
+  }
+  document.querySelectorAll('.memo-chip').forEach(c => {
+    c.classList.toggle('active', text !== '' && c.textContent.trim() === text.trim());
+  });
+}
+
+function updateSplits() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const total = people.length + 1;
+  const each = amount > 0 ? amount / total : 0;
+  document.getElementById('self-share').textContent = each > 0 ? `π ${each.toFixed(2)}` : 'π —';
+  people.forEach(p => {
+    const el = document.getElementById(`share-${p.id}`);
+    if (el) el.textContent = each > 0 ? `π ${each.toFixed(2)}` : 'π —';
+  });
+  const summary = document.getElementById('summary');
+  const sendBtn = document.getElementById('send-btn');
+  if (amount > 0) {
+    summary.classList.add('show');
+    document.getElementById('sum-total').textContent = `π ${amount.toFixed(2)}`;
+    document.getElementById('sum-people').textContent = `${total} ${total === 1 ? 'person' : 'people'}`;
+    document.getElementById('sum-each').textContent = `π ${each.toFixed(2)}`;
+    sendBtn.disabled = false;
+  } else {
+    summary.classList.remove('show');
+    sendBtn.disabled = true;
+  }
+}
+
+function openContacts() { document.getElementById('contact-overlay').classList.add('show'); }
+
+function closeOverlay(e) {
+  if (e.target.classList.contains('overlay')) {
+    document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+  }
+}
+
+function addPerson(name, handle, gradient) {
+  if (people.find(p => p.handle === handle)) {
+    showToast(`${name} is already in the split`);
+    document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+    return;
+  }
+  const id = Date.now();
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  people.push({ id, name, handle, gradient, initials });
+  const list = document.getElementById('people-list');
+  const row = document.createElement('div');
+  row.className = 'person-row';
+  row.id = `person-${id}`;
+  row.innerHTML = `
+    <div class="avatar" style="background:${gradient}">${initials}</div>
+    <div class="person-info">
+      <div class="person-name">${name}</div>
+      <div class="person-handle">@${handle}</div>
+    </div>
+    <div class="person-share" id="share-${id}">π —</div>
+    <button class="remove-btn" onclick="removePerson(${id})">×</button>
+  `;
+  list.appendChild(row);
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+  updateSplits();
+  showToast(`${name} added`);
+}
+
+function removePerson(id) {
+  people = people.filter(p => p.id !== id);
+  document.getElementById(`person-${id}`)?.remove();
+  updateSplits();
+}
+
+function handleSend() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const memo = document.getElementById('memo').value || 'Pi² request';
+  if (!amount) return;
+  const total = people.length + 1;
+  const each = (amount / total).toFixed(2);
+  const params = new URLSearchParams({ from: 'pioneer_will', amount: each, total: amount.toFixed(2), memo, people: total });
+  const link = `https://stillwatersapp.github.io/pi-squared?${params}`;
+  document.getElementById('link-display').textContent = link;
+  document.getElementById('link-card-sub').textContent = total > 1 ? `π${each} each · ${total} people` : `Direct request`;
+  document.getElementById('link-card').classList.add('show');
+  const btn = document.getElementById('send-btn');
+  btn.textContent = '✓ Link Generated';
+  btn.classList.add('success');
+  setTimeout(() => { btn.textContent = 'Generate Request Link'; btn.classList.remove('success'); }, 3000);
+  setTimeout(() => document.getElementById('link-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(document.getElementById('link-display').textContent).catch(() => {});
+  const btn = document.getElementById('copy-btn');
+  btn.classList.add('copied'); btn.textContent = '✓ Copied!';
+  setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '📋 Copy'; }, 2200);
+  showToast('Link copied');
+}
+
+function createReceiveLink() {
+  const amount = parseFloat(document.getElementById('req-amount').value) || '';
+  const note = document.getElementById('req-note').value || 'Pi payment';
+  const params = new URLSearchParams({ to: 'pioneer_will', note });
+  if (amount) params.set('amount', amount);
+  receiveLink = `https://stillwatersapp.github.io/pi-squared?${params}`;
+  document.getElementById('receive-link-display').textContent = receiveLink;
+  document.getElementById('receive-link-card').classList.add('show');
+  showToast('Request link ready');
+}
+
+function copyReceiveLink() {
+  navigator.clipboard.writeText(receiveLink).catch(() => {});
+  showToast('Copied!');
+}
+
+function handleShare() {
+  const link = document.getElementById('link-display').textContent || receiveLink;
+  if (navigator.share && link) navigator.share({ title: 'Pi² Payment Request', url: link });
+  else showToast('Copy the link to share');
+}
+
+// ============ MARKETPLACE ============
+const listingDescriptions = {
+  'Logo Design': 'Professional custom logo design for your brand, business, or Pi project. Delivered in SVG, PNG, and PDF. 2 revision rounds included. Turnaround: 48 hours.',
+  'Python Course': 'A complete beginner-friendly Python course covering variables, loops, functions, and APIs. Delivered as a downloadable PDF + 3 code exercise files.',
+  'Handmade Candles': 'Set of 3 hand-poured soy wax candles in lavender, cedar, and citrus scents. Burn time ~40 hours each. Ships within 3 days.',
+  'Meal Prep': 'Five days of healthy, balanced meals prepped fresh and delivered to your door. Includes breakfast, lunch, and dinner. Customizable for dietary needs.',
+  'Car Wash': 'Full interior/exterior detail including hand wash, vacuum, tire shine, and window clean. Available for pickup or local delivery within 10 miles.'
+};
+
+function openListing(card) {
+  const title = card.querySelector('.listing-title').textContent;
+  const seller = card.querySelector('.listing-seller').textContent;
+  const priceEl = card.querySelector('.listing-price');
+  const price = priceEl.textContent;
+  // Extract only the emoji text node — not the badge or overlay child elements
+  const imgEl = card.querySelector('.listing-img');
+  const emoji = Array.from(imgEl.childNodes)
+    .filter(n => n.nodeType === Node.TEXT_NODE)
+    .map(n => n.textContent.trim())
+    .find(t => t.length > 0) || '📦';
+  const badgeText = card.querySelector('.listing-badge').textContent;
+  const desc = listingDescriptions[card.dataset.title] || 'Quality item from a verified Pi pioneer.';
+  const piAmount = parseFloat(price.replace('π',''));
+  const usd = (piAmount * 0.15).toFixed(2);
+  const fee = (piAmount * FEE_RATE).toFixed(2);
+  const buyFn = card.querySelector('.buy-btn').getAttribute('onclick').replace('event.stopPropagation(); ','');
+
+  document.getElementById('listing-detail-content').innerHTML = `
+    <div class="listing-detail-img">${emoji}</div>
+    <div class="listing-detail-title">${title}</div>
+    <div class="listing-detail-seller">${seller} · ${badgeText}</div>
+    <div class="listing-detail-desc">${desc}</div>
+    <div class="listing-detail-price">
+      <div class="listing-detail-pi">π ${piAmount.toFixed(2)}</div>
+      <div class="listing-detail-usd">≈ $${usd} USD</div>
+    </div>
+    <div class="fee-notice">
+      ℹ️ A 1% Pi² platform fee (π ${fee}) applies — or watch a 30-second ad to waive it at checkout.
+    </div>
+    <button class="cta teal" onclick="closeListingSheet(); ${buyFn}" style="margin-bottom:8px">Buy Now — π ${piAmount.toFixed(2)}</button>
+    <button class="fee-cancel" style="width:100%;padding:12px;background:none;border:none;color:var(--muted);cursor:pointer;font-family:'Outfit',sans-serif;font-size:14px" onclick="closeListingSheet()">Close</button>
+  `;
+  document.getElementById('listing-overlay').classList.add('show');
+}
+
+function closeListingSheet() {
+  document.getElementById('listing-overlay').classList.remove('show');
+}
+
+function filterListings(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.listing-card').forEach(card => {
+    const title = card.dataset.title.toLowerCase();
+    card.style.display = title.includes(q) ? '' : 'none';
+  });
+}
+
+function filterCat(el, cat) {
+  document.querySelectorAll('.market-cat').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.listing-card').forEach(card => {
+    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+  });
+}
+
+// ============ BUY / FEE FLOW ============
+function initBuy(title, price, seller) {
+  currentBuy = { title, price, seller };
+  feeOpt = 'pay';
+  const fee = (price * FEE_RATE).toFixed(2);
+  const total = (price + price * FEE_RATE).toFixed(2);
+  document.getElementById('fee-modal-sub').textContent = `Buying from ${seller}`;
+  document.getElementById('fee-item-name').textContent = title;
+  document.getElementById('fee-item-price').textContent = `π ${parseFloat(price).toFixed(2)}`;
+  document.getElementById('fee-amount').textContent = `π ${fee}`;
+  document.getElementById('fee-total').textContent = `π ${total}`;
+  document.getElementById('fee-opt-pay').classList.add('selected');
+  document.getElementById('fee-opt-ad').classList.remove('selected');
+  document.getElementById('fee-confirm-btn').textContent = `Pay π ${total} with Pi`;
+  document.getElementById('fee-confirm-btn').className = 'fee-confirm-btn pay-fee';
+  document.getElementById('fee-modal').classList.add('show');
+}
+
+function selectFeeOpt(opt) {
+  feeOpt = opt;
+  document.getElementById('fee-opt-pay').classList.toggle('selected', opt === 'pay');
+  document.getElementById('fee-opt-ad').classList.toggle('selected', opt === 'ad');
+  if (!currentBuy) return;
+  const price = currentBuy.price;
+  const fee = (price * FEE_RATE).toFixed(2);
+  const total = (price + price * FEE_RATE).toFixed(2);
+  const btn = document.getElementById('fee-confirm-btn');
+  if (opt === 'pay') {
+    document.getElementById('fee-amount').textContent = `π ${fee}`;
+    document.getElementById('fee-total').textContent = `π ${total}`;
+    btn.textContent = `Pay π ${total} with Pi`;
+    btn.className = 'fee-confirm-btn pay-fee';
+  } else {
+    document.getElementById('fee-amount').textContent = 'π 0.00 (waived)';
+    document.getElementById('fee-total').textContent = `π ${parseFloat(price).toFixed(2)}`;
+    btn.textContent = `Watch Ad → Pay π ${parseFloat(price).toFixed(2)}`;
+    btn.className = 'fee-confirm-btn watch-ad';
+  }
+}
+
+function confirmPurchase() {
+  if (!currentBuy) return;
+  document.getElementById('fee-modal').classList.remove('show');
+  if (feeOpt === 'ad') {
+    startAd();
+  } else {
+    completePurchase(false);
+  }
+}
+
+function closeFeeModal(e) {
+  if (e.target.id === 'fee-modal') document.getElementById('fee-modal').classList.remove('show');
+}
+function closeFeeModalDirect() {
+  document.getElementById('fee-modal').classList.remove('show');
+}
+
+// ============ AD FLOW ============
+let adTimer = null;
+let adSeconds = 30;
+
+function startAd() {
+  adSeconds = AD_DURATION;
+  document.getElementById('ad-viewer').classList.add('show');
+  document.getElementById('ad-countdown').textContent = `Ad ends in ${adSeconds}s`;
+  document.getElementById('ad-skip-btn').style.display = 'none';
+  document.getElementById('ad-progress').style.width = '0%';
+  if (DEMO_MODE) document.getElementById('ad-demo-label').style.display = 'inline';
+
+  const ads = [
+    { emoji: '🌐', title: 'Pi Browser', desc: 'The gateway to the Pi ecosystem. Browse, pay, and discover — all in one place.' },
+    { emoji: '🚀', title: 'Build on Pi', desc: 'Deploy your app to 50M+ active Pioneers. The Pi Developer Portal is now open.' },
+    { emoji: '💎', title: 'Pi Utilities', desc: 'More ways to use your Pi every day. The Pi economy is growing fast — be part of it.' }
+  ];
+  const ad = ads[Math.floor(Math.random() * ads.length)];
+  document.querySelector('.ad-visual').textContent = ad.emoji;
+  document.querySelector('.ad-title').textContent = ad.title;
+  document.querySelector('.ad-desc').textContent = ad.desc;
+
+  adTimer = setInterval(() => {
+    adSeconds--;
+    document.getElementById('ad-countdown').textContent = `Ad ends in ${adSeconds}s`;
+    document.getElementById('ad-progress').style.width = `${((AD_DURATION - adSeconds) / AD_DURATION) * 100}%`;
+    if (adSeconds <= (DEMO_MODE ? 1 : 5)) {
+      document.getElementById('ad-skip-btn').style.display = 'block';
+    }
+    if (adSeconds <= 0) {
+      clearInterval(adTimer);
+      finishAd();
+    }
+  }, 1000);
+}
+
+function skipAd() {
+  if (adSeconds > 5) return;
+  clearInterval(adTimer);
+  finishAd();
+}
+
+function finishAd() {
+  document.getElementById('ad-viewer').classList.remove('show');
+  showToast('✓ Ad complete · fee waived!');
+  setTimeout(() => completePurchase(true), 400);
+}
+
+function completePurchase(feeWaived) {
+  if (!currentBuy) return;
+  const buy = currentBuy;
+  currentBuy = null;
+  const price = buy.price;
+  const paidAmount = feeWaived ? price : (price + price * FEE_RATE);
+
+  showToast(`Initiating Pi payment…`);
+
+  // Pi SDK payment flow
+  // In production: replace memo/metadata with real order data
+  Pi.createPayment(
+    {
+      amount: paidAmount,
+      memo: `Pi² purchase: ${buy.title}`,
+      metadata: {
+        item: buy.title,
+        seller: buy.seller,
+        feeWaived: feeWaived,
+        basePrice: price,
+        fee: feeWaived ? 0 : price * FEE_RATE
+      }
+    },
+    {
+      onReadyForServerApproval: function(paymentId) {
+        // TODO: POST /api/payments/approve { paymentId }
+        console.log('[Pi²] Ready for approval, paymentId:', paymentId);
+      },
+      onReadyForServerCompletion: function(paymentId, txid) {
+        // TODO: POST /api/payments/complete { paymentId, txid }
+        console.log('[Pi²] Payment complete, txid:', txid);
+        showToast(`✓ Purchased: ${buy.title}`);
+      },
+      onCancel: function(paymentId) {
+        console.log('[Pi²] Payment cancelled:', paymentId);
+        showToast('Payment cancelled');
+      },
+      onError: function(error, payment) {
+        console.error('[Pi²] Payment error:', error, payment);
+        showToast('Payment error — please try again');
+      }
+    }
+  );
+}
+
+// ============ SELL PANEL ============
+function toggleTag(el) {
+  el.classList.toggle('active');
+}
+
+function handleListItem() {
+  const title = document.getElementById('sell-title').value.trim();
+  const price = parseFloat(document.getElementById('sell-price').value) || 0;
+  const cat = document.getElementById('sell-cat').value;
+  if (!title || !price || !cat) {
+    showToast('Fill in title, price & category');
+    return;
+  }
+  const catEmojis = { goods:'🛍', services:'⚙️', food:'🍜', digital:'💻', local:'📍' };
+  const emoji = catEmojis[cat] || '📦';
+  const list = document.getElementById('my-listings');
+  const row = document.createElement('div');
+  row.className = 'my-listing-row';
+  row.style.animation = 'slideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+  row.innerHTML = `
+    <div class="my-listing-emoji">${emoji}</div>
+    <div class="my-listing-info">
+      <div class="my-listing-title">${title}</div>
+      <div class="my-listing-meta">${cat} · just listed</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+      <div class="my-listing-price">π ${price.toFixed(2)}</div>
+      <div class="my-listing-status active">active</div>
+    </div>
+  `;
+  list.insertBefore(row, list.firstChild);
+  document.getElementById('sell-title').value = '';
+  document.getElementById('sell-desc').value = '';
+  document.getElementById('sell-price').value = '';
+  document.getElementById('sell-cat').value = '';
+  document.querySelectorAll('.tag-pill').forEach(p => p.classList.remove('active'));
+  showToast(`"${title}" listed ✓`);
+  setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+}
+
+// ============ HISTORY FILTER ============
+function filterHistory(el, type) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tx-item').forEach(item => {
+    item.style.display = (type === 'all' || item.dataset.type === type) ? 'flex' : 'none';
+  });
+}
+
+// ============ FEEDBACK ============
+let feedbackRating = 0;
+
+function openFeedback() {
+  feedbackRating = 0;
+  document.querySelectorAll('.star').forEach(s => s.classList.remove('lit'));
+  document.querySelectorAll('.feedback-tag').forEach(t => t.classList.remove('active'));
+  document.getElementById('feedback-text').value = '';
+  document.getElementById('feedback-form').style.display = 'block';
+  document.getElementById('feedback-sent').style.display = 'none';
+  document.getElementById('feedback-overlay').classList.add('show');
+}
+
+function rateStar(val) {
+  feedbackRating = val;
+  document.querySelectorAll('.star').forEach(s => {
+    s.classList.toggle('lit', parseInt(s.dataset.val) <= val);
+  });
+}
+
+function toggleFeedbackTag(el) {
+  el.classList.toggle('active');
+}
+
+function submitFeedback() {
+  if (!feedbackRating) {
+    showToast('Tap a star to rate first');
+    return;
+  }
+  const tags = [...document.querySelectorAll('.feedback-tag.active')].map(t => t.textContent);
+  const text = document.getElementById('feedback-text').value.trim();
+  // In production: POST to /api/feedback
+  console.log('Feedback:', { rating: feedbackRating, tags, text });
+  document.getElementById('feedback-form').style.display = 'none';
+  document.getElementById('feedback-sent').style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('feedback-overlay').classList.remove('show');
+  }, 2800);
+}
+
+// ============ TOAST ============
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>
